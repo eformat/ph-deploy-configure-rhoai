@@ -352,6 +352,8 @@ for model in sim-openai sim-anthropic sim-azure-openai sim-bedrock sim-vertex-op
 done
 ----
 
+image::23-maas-llm-katan-simluator.png[MaaS LLM Katan Simulator Models,link=self,window=blank,width=800]
+
 *Path-based routing.* Encode the model in the URL path as
 `${HOST}/<namespace>/<model>/v1/chat/completions`. This is useful for debugging (each model
 has a distinct URL) but couples the client to the cluster's namespace layout:
@@ -396,7 +398,8 @@ echo "https://sim-dashboard-llm-katan.${CLUSTER_DOMAIN}/dashboard"
 +
 The dashboard shows per-provider request counts, token consumption, response times, and a
 live event stream (via WebSocket) of every request the simulator processes. It updates in
-real time — run the Exercise 2 curl loop again and watch the counters increment.
+real time — run the Exercise 2 curl loop again and watch the counters increment. You can drill
+down to the individual request details by clicking on the request in the dashboard.
 +
 You can also query the stats programmatically:
 +
@@ -404,6 +407,10 @@ You can also query the stats programmatically:
 ----
 curl -sSk "https://sim-dashboard-llm-katan.${CLUSTER_DOMAIN}/stats" | jq .
 ----
++
+image::24-maas-llm-katan-dashboard1.png[MaaS LLM Katan Dashboard,link=self,window=blank,width=800]
++
+image::25-maas-llm-katan-dashboard2.png[MaaS LLM Katan Dashboard Details,link=self,window=blank,width=800]
 
 == Exercise 3: View simulator metrics in the Observability dashboard
 
