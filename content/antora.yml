@@ -43,4 +43,4 @@ asciidoc:
     # --- Models ---
     cpu_model: "Qwen2.5-0.5B-Instruct"
     # --- Source repo for manifests ---
-    repo-url: "https://github.com/eformat/zt-rhoai-deploy-configure-showroom"
+    repo-url: "https://github.com/eformat/ph-deploy-configure-rhoai"
