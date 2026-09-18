@@ -16,8 +16,8 @@ project:
   automation_type: "ansible"
   description: "RHOAI Deploy & Configure Workshop — A CPU-completable, hands-on lab that walks participants through installing, configuring, serving (vLLM), governing (MaaS), scaling (llm-d + KEDA), and observing Red Hat OpenShift AI on OCP 4.19+. Supports RHOAI 3.4 and 3.5 from a single codebase using conditional content gating."
   # content_reviewer_email and infra_reviewer_email are assigned by the RHDP team — not set by the author
-  jira_ticket: ""
-  workflow_id: ""
+  jira_ticket: "RHDPCD-1978"
+  workflow_id: "742e608c-f4a7-4e64-8b83-28692a935018"
 
 spec:
   title: ""

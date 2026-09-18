@@ -3,11 +3,11 @@ kind: Component
 metadata:
   name: ph-deploy-configure-rhoai
   title: ph-deploy-configure-rhoai
-  description: RHOAI Deploy & Configure Workshop — A CPU-completable, hands-on lab
-    that walks participants through installing, configuring, serving (vLLM),
-    governing (MaaS), scaling (llm-d + KEDA), and observing Red Hat OpenShift AI
-    on OCP 4.19+. Supports RHOAI 3.4 and 3.5 from a single codebase using
-    conditional content gating.
+  description: "RHOAI Deploy & Configure Workshop \u2014 A CPU-completable, hands-on\
+    \ lab that walks participants through installing, configuring, serving (vLLM),\
+    \ governing (MaaS), scaling (llm-d + KEDA), and observing Red Hat OpenShift AI\
+    \ on OCP 4.19+. Supports RHOAI 3.4 and 3.5 from a single codebase using conditional\
+    \ content gating."
   annotations:
     ph.rhdp.io/content-type: lab
     ph.rhdp.io/deployment-mode: rhdp_published
@@ -16,22 +16,25 @@ metadata:
     ph.rhdp.io/migrated-repo: https://github.com/rhai-code/zt-rhoai-deploy-configure-showroom
     backstage.io/techdocs-ref: dir:.
     github.com/project-slug: rhpds/ph-deploy-configure-rhoai
-    ph.rhdp.io/created-at: 2026-09-18T01:27:49.658Z
+    ph.rhdp.io/created-at: 2026-09-18 01:27:49.658000+00:00
   tags:
-    - publishing-house
-    - lab
-    - rhdp-published
-    - migration
+  - publishing-house
+  - lab
+  - rhdp-published
+  - migration
   links:
-    - url: https://github.com/rhpds/ph-deploy-configure-rhoai
-      title: Repository
-      icon: github
-    - url: https://devspaces.apps.ocpv-infra02.wdc07.infra.demo.redhat.com#https://github.com/rhpds/ph-deploy-configure-rhoai
-      title: Open in DevSpaces
-      icon: catalog
-    - url: https://central-api-publishing-house.apps.ocpv-infra02.wdc07.infra.demo.redhat.com
-      title: Central
-      icon: dashboard
+  - url: https://github.com/rhpds/ph-deploy-configure-rhoai
+    title: Repository
+    icon: github
+  - url: https://devspaces.apps.ocpv-infra02.wdc07.infra.demo.redhat.com#https://github.com/rhpds/ph-deploy-configure-rhoai
+    title: Open in DevSpaces
+    icon: catalog
+  - url: https://central-api-publishing-house.apps.ocpv-infra02.wdc07.infra.demo.redhat.com
+    title: Central
+    icon: dashboard
+  - url: https://redhat.atlassian.net/browse/RHDPCD-1978
+    title: Jira Epic
+    icon: dashboard
 spec:
   type: content
   lifecycle: experimental
