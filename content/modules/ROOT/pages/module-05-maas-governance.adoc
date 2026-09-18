@@ -184,8 +184,6 @@ becomes fully supported.
 ----
 export CLUSTER_DOMAIN=$(oc get ingress.config cluster -o jsonpath='{.spec.domain}')
 oc kustomize manifests/05-maas/gateway/clusterip | envsubst '${CLUSTER_DOMAIN}' | oc apply -f -
-oc wait --for=condition=Programmed gateway/maas-default-gateway \
-  -n openshift-ingress --timeout=5m
 # On clusters without a LoadBalancer provider, the gateway Service is type LoadBalancer
 # but stays <pending> externally. Manually set the service status with the Route hostname
 # so the gateway reports the external URL and the maas-api can discover it.
@@ -193,6 +191,8 @@ SVC=$(oc get svc -n openshift-ingress -l gateway.networking.k8s.io/gateway-name=
   -o jsonpath='{.items[0].metadata.name}')
 oc patch svc "${SVC}" -n openshift-ingress --subresource=status --type=merge \
   -p "{\"status\":{\"loadBalancer\":{\"ingress\":[{\"hostname\":\"maas.${CLUSTER_DOMAIN}\"}]}}}"
+oc wait --for=condition=Programmed gateway/maas-default-gateway \
+  -n openshift-ingress --timeout=5m
 ----
 
 *LoadBalancer (cloud — AWS/ROSA/OSD, or on-prem with MetalLB).* Only use this if your cluster has a
