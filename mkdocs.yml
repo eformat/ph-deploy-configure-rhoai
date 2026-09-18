@@ -1,0 +1,15 @@
+site_name: RHOAI Deploy & Configure Workshop
+docs_dir: publishing-house/spec
+nav:
+- Home: index.md
+- Design Spec: design.md
+- Modules:
+  - Module 01 - Install Connected: modules/module-01-install-connected.md
+  - Module 02 - Install Disconnected: modules/module-02-install-disconnected.md
+  - Module 03 - Model Serving Platform: modules/module-03-model-serving-platform.md
+  - Module 04 - Vllm Serving: modules/module-04-vllm-serving.md
+  - Module 05 - Maas Governance: modules/module-05-maas-governance.md
+  - Module 05a - External Models: modules/module-05a-external-models.md
+  - Module 06 - Llmd Scaling: modules/module-06-llmd-scaling.md
+plugins:
+- techdocs-core
