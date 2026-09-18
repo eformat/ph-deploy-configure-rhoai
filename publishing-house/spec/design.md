@@ -90,16 +90,16 @@ Advanced
 
 ## Infrastructure Requirements
 
-- **Cloud provider:** TBD — confirmed in infrastructure phase
-- **Cluster type:** TBD — confirmed in infrastructure phase
-- **OCP version:** TBD — confirmed in infrastructure phase
-- **Topology:** TBD — confirmed in infrastructure phase
-- **Sizing:** TBD — confirmed in infrastructure phase
-- **Automation approach:** TBD — confirmed in infrastructure phase
-- **AI/MaaS:** TBD — confirmed in infrastructure phase
-- **External services:** TBD — confirmed in infrastructure phase
-- **AAP version:** TBD — confirmed in infrastructure phase
-- **Non-GA products:** TBD — confirmed in infrastructure phase
+- **Cloud provider:** CNV
+- **Cluster type:** Multinode
+- **OCP version:** 4.20
+- **Topology:** Per-student
+- **Sizing:** 1 control plane (16 vCPU, 64GB RAM); 1 worker (32 vCPU, 128GB RAM, 300GB disk)
+- **Automation approach:** Ansible
+- **AI/MaaS:** MaaS + open-source model (`qwen2.5-0.5b-instruct`); no GPU required
+- **External services:** `quay.io`, `registry.redhat.io`, `mirror.openshift.com`, `github.com`
+- **AAP version:** N/A
+- **Non-GA products:** Red Hat OpenShift AI MaaS (Tech Preview), llm-d (Tech Preview) — available via standard RHOAI OLM install; no special access required
 
 ## Assessment Strategy (Optional)
 

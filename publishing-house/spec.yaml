@@ -62,20 +62,20 @@ spec:
       status: not_started
   environment:
     platform: "ocp"              # ocp | rhel-vms — determines which sizing fields apply
-    topology: ""               # shared-cluster | per-student | cnv-pool
+    topology: "per-student"    # shared-cluster | per-student | cnv-pool
     cloud_provider: cnv        # cnv | aws — cnv is default
     max_concurrent_users: null # required if topology = shared-cluster
 
     # --- OCP-specific fields (only when platform = ocp) ---
     ocp_version: "4.20"                  # e.g. 4.20 — minimum 4.20; leave empty for rhel-vms
-    cluster_type: ""                   # sno | multinode — only for platform = ocp
-    control_plane_instance_count: null # 1 if sno, 3 if multinode
-    control_plane_cpu: null            # 32 if sno, 16 if multinode
-    control_plane_ram_gb: null         # 128 if sno, 64 if multinode
-    worker_count: null                 # number of OCP worker nodes
-    worker_cpu: null                   # vCPU per worker
-    worker_ram_gb: null                # RAM per worker in GB
-    worker_disk_gb: null               # disk per worker in GB
+    cluster_type: "multinode"          # sno | multinode — only for platform = ocp
+    control_plane_instance_count: 1    # 1 if sno, 3 if multinode
+    control_plane_cpu: 16              # 32 if sno, 16 if multinode
+    control_plane_ram_gb: 64           # 128 if sno, 64 if multinode
+    worker_count: 1                    # number of OCP worker nodes
+    worker_cpu: 32                     # vCPU per worker
+    worker_ram_gb: 128                 # RAM per worker in GB
+    worker_disk_gb: 300                # disk per worker in GB
 
     # --- VM-specific fields (only when platform = rhel-vms) ---
     # Each entry: {role, count, cpu, ram_gb, disk_gb, os}
