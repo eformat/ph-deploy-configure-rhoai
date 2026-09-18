@@ -1,0 +1,81 @@
+= Cleanup
+:navtitle: Cleanup
+:toc: macro
+:toclevels: 1
+:icons: font
+
+Remove the resources created during the workshop. Run the steps in reverse order of the modules so
+dependencies are torn down cleanly.
+
+== Remove workload resources
+
+[source,bash,role="execute",subs="attributes"]
+----
+# Module 6 — llm-d + KEDA
+oc delete -k manifests/06-llmd/autoscaling-keda -n {project_name} --ignore-not-found
+oc delete -k manifests/06-llmd/maas-subscription --ignore-not-found
+oc delete -k manifests/06-llmd/service -n {project_name} --ignore-not-found
+
+# Module 5 — MaaS (subscription manifests pin their own namespaces, so no -n flag)
+oc delete -k manifests/05-maas/telemetry --ignore-not-found
+oc delete -k manifests/05-maas/subscription --ignore-not-found
+
+# Module 4 — vLLM model
+oc delete -k manifests/04-vllm/qwen25-05b -n {project_name} --ignore-not-found
+----
+
+== Remove the project
+
+[source,bash,role="execute",subs="attributes"]
+----
+oc delete project {project_name} --ignore-not-found
+----
+
+== Remove platform add-ons (optional)
+
+[WARNING]
+====
+Only remove the operators and {rhoai-short} itself if this cluster was dedicated to the workshop.
+Deleting the `DataScienceCluster` removes all {rhoai-short} components.
+====
+
+[source,bash,role="execute"]
+----
+# MaaS database and gateway (delete whichever gateway mode you applied)
+oc delete -k manifests/05-maas/gateway/clusterip --ignore-not-found
+oc delete -k manifests/05-maas/gateway/loadbalancer --ignore-not-found
+oc delete -k manifests/05-maas/postgres -n redhat-ods-applications --ignore-not-found
+
+# Authorino service-CA trust (revert the volume mount, then remove the injected ConfigMaps)
+oc patch authorino authorino -n kuadrant-system --type=merge \
+  -p '{"spec":{"volumes":{"items":[]}}}' --ignore-not-found
+oc delete -f manifests/05-maas/connectivity-link/authorino-service-ca-trust.yaml --ignore-not-found
+
+# Serving-path + autoscaling operators (Leader Worker Set, JobSet, KEDA)
+oc delete -f manifests/05-maas/serving-operators/operator-config.yaml --ignore-not-found
+oc delete -k manifests/05-maas/serving-operators --ignore-not-found
+oc delete -k manifests/06-llmd/operators --ignore-not-found
+
+# Observability backend + the version-gap workarounds (COO, OpenTelemetry, Perses datasource)
+oc delete -k manifests/05-maas/observability-datasource --ignore-not-found
+oc delete secret prometheus-web-tls-ca -n redhat-ods-monitoring --ignore-not-found
+oc delete -k manifests/05-maas/observability-operators --ignore-not-found
+
+# User Workload Monitoring (reverts enableUserWorkload; shared with Module 6 KEDA scaling)
+oc delete -k manifests/05-maas/uwm --ignore-not-found
+
+# RHOAI (dedicated clusters only)
+oc delete -k manifests/01-install/dsc --ignore-not-found
+oc delete -k manifests/01-install/operator --ignore-not-found
+----
+
+== Verify
+
+[source,bash,role="execute",subs="attributes"]
+----
+oc get project {project_name} 2>/dev/null || echo "project removed"
+----
+
+* The workshop project is gone and no workshop workloads remain.
+
+Thank you for completing the *{lab_name}* workshop!

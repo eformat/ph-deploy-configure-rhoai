@@ -1,0 +1,270 @@
+= Module 1: Installing RHOAI (Connected)
+:navtitle: Module 1: Install (Connected)
+:toc: macro
+:toclevels: 1
+:icons: font
+
+Before any model can be served, {rhoai} {rhoai_version} must be installed. In this module you install
+the operator on a *connected* {ocp} cluster and create a `DataScienceCluster` that enables the
+components the rest of the workshop depends on.
+
+== Learning objectives
+
+By the end of this module you will be able to:
+
+* Install the {rhoai} Operator into the `redhat-ods-operator` namespace
+* Create a `DataScienceCluster` (DSC) that enables the dashboard and KServe
+* Reach and log into the {rhoai-short} dashboard
+* Confirm the predefined {rhoai-short} namespaces exist
+
+== Exercise 1: Install the RHOAI Operator
+
+. Apply the operator namespace, operator group, and subscription:
++
+ifeval::["{rhoai_version}" == "3.4"]
+[source,bash,role="execute"]
+----
+oc apply -k manifests/01-install/operator
+----
+endif::[]
+ifeval::["{rhoai_version}" == "3.5"]
+[source,bash,role="execute"]
+----
+oc apply -f manifests/01-install/operator/namespace.yaml
+oc apply -f manifests/01-install/operator/operatorgroup.yaml
+oc apply -f manifests/01-install/operator/subscription-35.yaml
+----
+endif::[]
+
+. Wait for the operator ClusterServiceVersion (CSV) to reach `Succeeded`:
++
+[source,bash,role="execute"]
+----
+oc wait csv -n redhat-ods-operator \
+  -l operators.coreos.com/rhods-operator.redhat-ods-operator \
+  --for=jsonpath='{.status.phase}'=Succeeded --timeout=15m
+----
++
+image::01-install-rhoai-operator.png[RHOAI Operator Installation,link=self,window=blank,width=800]
+
+=== Verify
+
+* The `rhods-operator.*` CSV reports `PHASE=Succeeded`:
++
+[source,bash,role="execute"]
+----
+oc get csv -n redhat-ods-operator -o jsonpath='{.items[?(@.spec.displayName=="Red Hat OpenShift AI")].status.phase}{"\n"}'
+----
+
+Now that the operator is running, let's tell it what to do by creating the `DataScienceCluster`.
+
+== Exercise 2: Create the DataScienceCluster
+
+The `DSCInitialization` (DSCI) sets cluster-wide defaults — monitoring, CA trust, and the
+applications namespace — while the `DataScienceCluster` (DSC) controls which components are
+active.
+
+The DSCI is applied once and rarely changes:
+
+[source,yaml]
+----
+apiVersion: dscinitialization.opendatahub.io/v1
+kind: DSCInitialization
+metadata:
+  name: default-dsci
+spec:
+  applicationsNamespace: redhat-ods-applications  # <1>
+  monitoring:
+    managementState: Managed                      # <2>
+    metrics:
+      retention: 90d
+      storage:
+        size: 5Gi
+    namespace: redhat-ods-monitoring              # <3>
+  trustedCABundle:
+    managementState: Managed                      # <4>
+    customCABundle: ""
+----
+<1> The namespace where RHOAI core components (dashboard, model controller) run.
+<2> Enables the data-science MonitoringStack (Prometheus + Thanos + Perses) in the
+    monitoring namespace — required for the Observability dashboard in Module 5+.
+<3> The monitoring namespace where Prometheus, Thanos, and Perses dashboards are deployed.
+<4> Injects the cluster CA bundle into RHOAI-managed pods. Leave `customCABundle` empty to
+    use the cluster default; set it to a PEM string for a custom CA (e.g. a corporate proxy).
+
+ifeval::["{rhoai_version}" == "3.5"]
+The DSC controls every {rhoai-short} subsystem via `managementState: Managed | Removed`. Review
+the key sections before applying:
+
+[source,yaml]
+----
+apiVersion: datasciencecluster.opendatahub.io/v1
+kind: DataScienceCluster
+metadata:
+  name: default-dsc
+spec:
+  components:
+    dashboard:
+      managementState: Managed                    # <1>
+    kserve:
+      managementState: Managed                    # <2>
+      nim:
+        managementState: Managed
+      rawDeploymentServiceConfig: Headless
+    aigateway:
+      managementState: Managed                    # <3>
+      modelsAsAService:
+        managementState: Removed                  # <4>
+    workbenches:
+      managementState: Managed
+    datasciencepipelines:
+      managementState: Managed
+    modelregistry:
+      managementState: Managed
+      registriesNamespace: rhoai-model-registries  # <5>
+    ogx:
+      managementState: Removed                    # <6>
+----
+<1> RHOAI dashboard — the web console for all platform users.
+<2> KServe — the single-model serving runtime used for vLLM and llm-d workloads.
+<3> AI Gateway — the 3.5 component that manages the MaaS gateway infrastructure.
+<4> `modelsAsAService` is intentionally `Removed` at install time. Module 5 enables it
+    *after* Red Hat Connectivity Link and the gateway are deployed — enabling it now
+    blocks the DSC with `AIGatewayReady=False`.
+<5> Model Registry namespace — must match what you reference in Module 3+.
+<6> Gen AI studio (OGX) — enabled later via a separate patch in Module 5.
+endif::[]
+
+ifeval::["{rhoai_version}" == "3.4"]
+The DSC controls every {rhoai-short} subsystem via `managementState: Managed | Removed`. Review
+the key sections before applying:
+
+[source,yaml]
+----
+apiVersion: datasciencecluster.opendatahub.io/v1
+kind: DataScienceCluster
+metadata:
+  name: default-dsc
+spec:
+  components:
+    dashboard:
+      managementState: Managed                    # <1>
+    kserve:
+      managementState: Managed                    # <2>
+      modelsAsService:
+        managementState: Removed                  # <3>
+      nim:
+        managementState: Managed
+      rawDeploymentServiceConfig: Headless
+    workbenches:
+      managementState: Managed
+    datasciencepipelines:
+      managementState: Managed
+    modelregistry:
+      managementState: Managed
+      registriesNamespace: rhoai-model-registries  # <4>
+----
+<1> RHOAI dashboard — the web console for all platform users.
+<2> KServe — the single-model serving runtime used for vLLM workloads.
+<3> `modelsAsService` is intentionally `Removed` at install time. Module 5 enables it
+    *after* Red Hat Connectivity Link and the gateway are deployed — enabling it now
+    blocks the DSC with `ModelsAsServiceReady=False`.
+<4> Model Registry namespace — must match what you reference in Module 3+.
+endif::[]
+
+. Apply the DSCInitialization and DataScienceCluster:
++
+ifeval::["{rhoai_version}" == "3.4"]
+[source,bash,role="execute"]
+----
+oc apply -f manifests/01-install/dsc/dscinitialization.yaml
+oc apply -f manifests/01-install/dsc/datasciencecluster-34.yaml
+----
+endif::[]
+ifeval::["{rhoai_version}" == "3.5"]
+[source,bash,role="execute"]
+----
+oc apply -k manifests/01-install/dsc
+----
+endif::[]
+
+. Wait for the DSC to become `Ready`:
++
+[source,bash,role="execute"]
+----
+oc wait datasciencecluster/default-dsc --for=condition=Ready --timeout=15m
+----
++
+image::02-dsc-ready.png[DataScienceCluster Ready,link=self,window=blank,width=800]
+
+=== Verify
+
+* The DSC reports a `Ready` phase:
++
+[source,bash,role="execute"]
+----
+oc get datasciencecluster default-dsc -o jsonpath='{.status.phase}{"\n"}'
+----
+
+With the cluster ready, let's open the dashboard so you can see {rhoai-short} from the platform administrator's perspective.
+
+== Exercise 3: Open the RHOAI dashboard
+
+. Get the dashboard route and open it in a browser:
++
+[source,bash,role="execute"]
+----
+oc get route rhods-dashboard -n redhat-ods-applications -o jsonpath='https://{.spec.host}{"\n"}'
+----
+
+. Log in with `{user}` / `{password}` and confirm the {rhoai-short} home page loads.
+
+=== Verify
+
+image::03-rhoai-dashboard.png[RHOAI Dashboard Home page,link=self,window=blank,width=800]
+
+* The dashboard route returns HTTP 200 and the landing page renders.
+
+TIP: Take a moment to orient yourself to the dashboard. The left navigation includes *Data Science Projects*, *Model Serving*, and *Settings*. As a platform admin you also see the *Settings* menu where you will enable features in later modules. Everything the dashboard surfaces, you can also control via `oc` — which is exactly what the rest of this workshop does.
+
+With the dashboard confirmed, let's verify the namespace structure that underpins it.
+
+== Exercise 4: Confirm the predefined namespaces
+
+[source,bash,role="execute"]
+----
+oc get ns redhat-ods-operator redhat-ods-applications rhods-notebooks
+----
+
+=== Verify
+
+* All three namespaces exist and are `Active`.
+
+== Module summary
+
+**What you accomplished:**
+
+* Installed the {rhoai} Operator and confirmed its CSV reached `Succeeded`
+* Created a `DataScienceCluster` that enabled the dashboard and KServe
+* Logged into the {rhoai-short} dashboard and confirmed the predefined namespaces
+
+**Key takeaways:**
+
+* Operator + DSC is a two-step install: the operator is the engine, the DSC is the configuration
+* The `DataScienceCluster` controls which {rhoai-short} components are active — you will return to it in later modules
+* Three namespaces (`redhat-ods-operator`, `redhat-ods-applications`, `rhods-notebooks`) define {rhoai-short}'s footprint on the cluster
+
+**Next steps:**
+
+If your cluster is air-gapped, follow xref:02-install-disconnected.adoc[Module 2] to mirror images and install from a private registry. Otherwise, skip ahead to xref:03-model-serving-platform.adoc[Module 3] to configure the model-serving platform.
+
+== References
+
+* Red Hat product documentation:
+** https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/installing_and_uninstalling_openshift_ai_self-managed/index[Installing and uninstalling OpenShift AI Self-Managed]
+* Reference code:
+** https://github.com/opendatahub-io/opendatahub-operator[opendatahub-io/opendatahub-operator]
+
+This satisfies the "RHOAI Ready" precondition. You can reach the same end state through the
+disconnected path in xref:02-install-disconnected.adoc[Module 2], or skip ahead to
+xref:03-model-serving-platform.adoc[Module 3] to configure model serving.

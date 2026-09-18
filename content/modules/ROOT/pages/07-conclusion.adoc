@@ -1,0 +1,34 @@
+= Conclusion
+:navtitle: Conclusion
+:icons: font
+
+Congratulations — you have deployed, configured, served, governed, scaled, and observed {rhoai}
+{rhoai_version} end-to-end on a CPU-only cluster.
+
+== What you accomplished
+
+* *Module 1 — Install (Connected)*: Installed the {rhoai-short} Operator and reached a `Ready`
+  `DataScienceCluster`.
+* *Module 2 — Install (Disconnected)*: Mirrored {rhoai-short} with oc-mirror v2 and installed from a
+  local `CatalogSource`, plus the Quay proxy pull-through cache alternative.
+* *Module 3 — Model-Serving Platform*: Enabled KServe single-model serving and made the pre-installed
+  vLLM CPU runtime available in your project.
+* *Module 4 — Serving with vLLM*: Served `{cpu_model}` and queried it via the OpenAI-compatible API.
+* *Module 5 — MaaS Governance* (Tech Preview): Governed access with subscriptions, API keys, and
+  token rate limiting; enabled User Workload Monitoring and viewed vLLM engine metrics and MaaS
+  per-subscription token telemetry.
+* *Module 6 — Scaling llm-d + KEDA* (Tech Preview): Scaled distributed inference on vLLM queue depth with KEDA (CPU path), correlated the scale event with the metrics that drove it, and reviewed the Workload Variant Autoscaler as the equivalent GPU-path alternative.
+
+== Where to go next
+
+* *Add GPU nodes* — the `vllm-cuda-rhel9` runtime template and hardware-profile hooks are already in place. Swap the CPU `InferenceService` for a GPU-enabled one and the Workload Variant Autoscaler (Exercise 6) is your scaling path.
+* *Harden the disconnected pipeline* — add your internal registry credentials to `imageset-config.yaml` and mirror the full RHOAI + OCP platform payload for a from-scratch air-gap install (see the Module 2 references).
+* *Promote Tech Preview features* — watch the {rhoai-short} release notes for MaaS and llm-d reaching GA; the manifests in this workshop are already structured for that transition.
+
+== Resources
+
+* link:https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4[{rhoai} {rhoai_version} documentation]
+* link:https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/govern_llm_access_with_models-as-a-service/index[Govern LLM access with {maas}]
+
+Thank you for completing the workshop! Continue to xref:08-cleanup.adoc[Cleanup] to remove the lab
+resources.

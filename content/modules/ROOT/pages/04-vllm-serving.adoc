@@ -1,0 +1,276 @@
+= Module 4: Model Serving with vLLM
+:navtitle: Module 4: Serving with vLLM
+:toc: macro
+:toclevels: 1
+:icons: font
+
+vLLM is the default LLM serving runtime in {rhoai} {rhoai_version}. In this module you deploy a model
+on a *CPU-only* cluster and make OpenAI-compatible inference requests — no GPU required.
+
+== Learning objectives
+
+By the end of this module you will be able to:
+
+* Deploy `{cpu_model}` (single-node, no scheduler) on the vLLM runtime
+* Expose the model on a token-authenticated external route
+* Send an authenticated inference request to the OpenAI-compatible endpoint
+* Compare the model access-control options (internal, external, token auth, governed/MaaS)
+* Read the `InferenceService` / `ServingRuntime` YAML to understand vLLM arguments
+
+== Prerequisites
+
+* The model-serving platform is configured (xref:03-model-serving-platform.adoc[Module 3] complete)
+* A storage connection or URI for the model
+
+== Exercise 1: Deploy the CPU model
+
+Deploy `{cpu_model}` as an `InferenceService` bound to the vLLM runtime. The manifest requests CPU
+only and disables the scheduler for single-node serving. It also exposes the model *securely*:
+
+* `networking.kserve.io/visibility: exposed` — KServe creates a managed external route (the same as
+  ticking *Make deployed models available through an external route* in the dashboard).
+* `security.opendatahub.io/enable-auth: "true"` — that route *requires a bearer token* (the
+  dashboard's *Require token authentication*). ODH injects a `kube-rbac-proxy` sidecar in front of
+  vLLM. The manifest also creates a `ServiceAccount` (`qwen25-05b-caller`) plus a `Role`/`RoleBinding`
+  granting it the one permission the proxy checks — `get` on this `InferenceService` — so you have an
+  identity to call as.
+
+You will see all of these in Exercise 3. Review the key fields before applying:
+
+[source,yaml]
+----
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: qwen25-05b
+  annotations:
+    serving.kserve.io/deploymentMode: RawDeployment  # <1>
+    security.opendatahub.io/enable-auth: "true"      # <2>
+  labels:
+    networking.kserve.io/visibility: exposed          # <3>
+spec:
+  predictor:
+    minReplicas: 1
+    maxReplicas: 1
+    model:
+      modelFormat:
+        name: vLLM
+      runtime: vllm-cpu-x86-runtime                  # <4>
+      storageUri: "oci://quay.io/.../qwen2.5-0.5b-instruct"  # <5>
+      args:
+        - "--max-model-len=8192"                      # <6>
+        - "--max-num-seqs=8"                          # <7>
+      env:
+        - name: OMP_NUM_THREADS
+          value: "4"                                  # <8>
+        - name: VLLM_CPU_OMP_THREADS_BIND
+          value: "0-3"                                # <9>
+      resources:
+        limits:
+          cpu: "4"
+          memory: 8Gi                                 # <10>
+----
+<1> Raw Deployment mode — KServe creates a standard Deployment (no Knative).
+<2> Injects a `kube-rbac-proxy` sidecar; every request must carry a ServiceAccount token
+    authorized to `get` this InferenceService.
+<3> KServe creates and owns an edge-terminated external Route.
+<4> References the pre-installed `vllm-cpu-x86-runtime` ServingRuntime template.
+<5> OCI modelcar image containing the model weights — no S3 or PVC needed.
+<6> Caps context length. Without this, vLLM allocates a KV cache for 32K tokens and OOMs.
+<7> Limits concurrent sequences — keeps memory bounded and makes requests queue sooner
+    (visible in KEDA queue-depth metrics in Module 6).
+<8> Pin OpenMP threads to match the CPU limit — prevents thrashing across all host cores.
+<9> Bind threads to cores 0-3 (single NUMA node) for fast memory access.
+<10> Memory is bounded by `--max-model-len` + KV cache; 8Gi fits the 0.5B model.
+
+[source,bash,role="execute",subs="attributes"]
+----
+oc apply -k manifests/04-vllm/qwen25-05b -n {project_name}
+----
+
+Wait for the model to become ready:
+
+[source,bash,role="execute",subs="attributes"]
+----
+oc wait inferenceservice/qwen25-05b -n {project_name} --for=condition=Ready --timeout=15m
+----
+
+=== Verify
+
+* The `InferenceService` reports `READY=True`:
++
+[source,bash,role="execute",subs="attributes"]
+----
+oc get inferenceservice qwen25-05b -n {project_name}
+----
+
+The model is deployed and listening. Now let's make your first authenticated inference request.
+
+== Exercise 2: Query the OpenAI-compatible API
+
+. Because the model is exposed (Exercise 1), `.status.url` is the *external* HTTPS route, reachable
+  from the bastion. It requires a token, so mint one for the `qwen25-05b-caller` ServiceAccount and
+  send it as a bearer token:
++
+[source,bash,role="execute",subs="attributes"]
+----
+URL=$(oc get inferenceservice qwen25-05b -n {project_name} -o jsonpath='{.status.url}')
+# -> https://qwen25-05b-{project_name}.apps.<cluster-domain>
+TOKEN=$(oc create token qwen25-05b-caller -n {project_name} --duration=1h)
+curl -sk $URL/v1/completions \
+  -H "Authorization: Bearer ${TOKEN}" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"qwen25-05b","prompt":"Red Hat OpenShift AI is","max_tokens":16}' | jq .
+----
++
+[TIP]
+====
+For the *internal* (in-cluster) endpoint instead, use `.status.address.url` — it resolves to
+`http://qwen25-05b-predictor.{project_name}.svc.cluster.local:8080` and only works from a pod or
+in-cluster terminal, not the bastion.
+====
+
+[NOTE]
+====
+The *first* request after the pod starts warms up vLLM and can take ~30s; if it times out, just run
+it again. Steady-state responses are a couple of seconds. (The manifest pins `OMP_NUM_THREADS` to
+the CPU limit — without that, vLLM oversubscribes every host core, gets throttled to ~0.5 tok/s, and
+every reply trips the route's 30s timeout.)
+====
+
+=== Verify
+
+* The authenticated call returns HTTP 200 with generated text in `choices[0].text`.
+* The *same* request with no `Authorization` header returns *HTTP 401*:
++
+[source,bash,role="execute",subs="attributes"]
+----
+curl -sk -o /dev/null -w "%{http_code}\n" $URL/v1/models
+----
+
+Now that you've called the model successfully, let's map exactly where this deployment sits on the access-control spectrum — and why that matters before you move to production.
+
+== Exercise 3: Understand the access-control options
+
+The way you deployed the model in Exercise 1 is one point on a spectrum. Access is controlled by two
+independent settings on the `InferenceService` — *visibility* (internal vs. external route) and *token auth* (unauthenticated vs. RBAC-protected) — so you can mix them per model:
+
+NOTE: These two settings are orthogonal. You can expose a model externally without requiring a token, or keep an authenticated model internal-only. The combination you choose in Exercise 1 — external *and* token-authenticated — is the right default for any model you wouldn't want wide-open.
+
+[cols="1,3,2",options="header"]
+|===
+| Level | How | Reachable by
+
+| *Internal only*
+| Omit the `networking.kserve.io/visibility` label. Only the in-cluster headless Service exists.
+| Pods / in-cluster terminals (via `.status.address.url`)
+
+| *External, unauthenticated*
+| `networking.kserve.io/visibility: exposed` only.
+| *Anyone* who can reach cluster ingress — no credentials
+
+| *External + token auth* (what you deployed)
+| `visibility: exposed` *and* `security.opendatahub.io/enable-auth: "true"`.
+| Callers with a valid, RBAC-authorized ServiceAccount bearer token
+
+| *Governed (MaaS)* — xref:05-maas-governance.adoc[Module 5]
+| Republish as an `LLMInferenceService` behind the MaaS gateway.
+| Users with a self-service *API key*, subject to *rate limits*
+|===
+
+. Inspect what the manifest created. KServe owns the external `Route` (you never write it yourself),
+  and enabling auth injected a `kube-rbac-proxy` sidecar plus wired in the caller identity:
++
+[source,bash,role="execute",subs="attributes"]
+----
+# KServe-managed edge route + the external URL it points at
+oc get route -n {project_name} -l inferenceservice-name=qwen25-05b
+oc get inferenceservice qwen25-05b -n {project_name} -o jsonpath='{.status.url}{"\n"}'
+----
+
+[source,bash,role="execute",subs="attributes"]
+----
+# The auth proxy runs alongside the vLLM container
+oc get pod -n {project_name} -l serving.kserve.io/inferenceservice=qwen25-05b \
+  -o jsonpath='{.items[0].spec.containers[*].name}{"\n"}'   # -> kserve-container kube-rbac-proxy ...
+----
+
+[source,bash,role="execute",subs="attributes"]
+----
+# The identity + RBAC that make a token acceptable
+oc get sa qwen25-05b-caller -n {project_name}
+oc get rolebinding qwen25-05b-caller-inference-get -n {project_name}
+----
+
+[NOTE]
+====
+The proxy authorizes each request with a SubjectAccessReview for
+`get inferenceservices/qwen25-05b`. That is why the caller needs the `Role`/`RoleBinding` — a token
+alone (authenticated but unauthorized) returns *HTTP 403*, not 200. To expose the model *without*
+auth instead, set `security.opendatahub.io/enable-auth` to `"false"` (or remove it); to make it
+internal-only, drop the `visibility` label.
+====
+
+[WARNING]
+====
+Token auth protects the endpoint, but it is still *per-model, self-managed* security: you hand out
+ServiceAccount tokens and there is no rate limiting or usage accounting. For shared or production
+use you want *governed* access — self-service API keys, subscriptions, and token rate limits across
+many models behind one gateway. That is exactly what xref:05-maas-governance.adoc[Module 5] adds
+with {maas}, and it is where external access should ultimately be centralised.
+====
+
+[NOTE]
+====
+The cluster's `data-science-gateway` fronts the {rhoai-short} dashboard UI and OAuth login — it is
+*not* an inference gateway. MaaS provisions its own `maas-default-gateway` for governed model
+traffic.
+====
+
+=== Verify
+
+* The route exists, the pod lists a `kube-rbac-proxy` container, and the `ServiceAccount` and
+  `RoleBinding` are present — i.e. the model is externally reachable *and* token-protected.
+
+== Exercise 4 (Optional): Inspect the vLLM runtime arguments
+
+[source,bash,role="execute",subs="attributes"]
+----
+oc get inferenceservice qwen25-05b -n {project_name} -o yaml | less
+----
+
+[source,bash,role="execute",subs="attributes"]
+----
+oc get servingruntime -n {project_name} -o yaml | less
+----
+
+Notice the vLLM `args` (for example `--max-model-len`, `--dtype`) and how the CPU profile omits GPU
+resource requests.
+
+== Module summary
+
+**What you accomplished:**
+
+* Deployed `{cpu_model}` on vLLM CPU and confirmed the `InferenceService` reached `Ready`
+* Sent an authenticated inference request to the OpenAI-compatible `/v1/completions` endpoint
+* Inspected the full access-control spectrum from internal-only to token auth to governed MaaS
+
+**Key takeaways:**
+
+* KServe creates and manages the external `Route` — you configure it with annotations on the `InferenceService`, not a separate Route resource
+* The `kube-rbac-proxy` sidecar enforces authorization per request via SubjectAccessReview — a valid token alone is not enough; the ServiceAccount needs the matching RBAC `Role`
+* Token-per-model auth works for isolated deployments, but governed access (Module 5) is the right destination for shared or production endpoints
+
+**Next steps:**
+
+Token auth protects the endpoint but leaves rate limits and usage accounting to you. Continue to xref:05-maas-governance.adoc[Module 5] to layer on {maas}: self-service API keys, per-subscription rate limits, and centralized telemetry across all your models.
+
+== References
+
+* Red Hat product documentation:
+** https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/deploying_models/index[Deploying models] (making inference requests)
+** https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/managing_and_monitoring_models/index[Managing and monitoring models]
+** https://docs.redhat.com/en/documentation/red_hat_openshift_ai_self-managed/3.4/html/configuring_your_model-serving_platform/index[Configuring your model-serving platform] (vLLM ServingRuntime)
+* Reference code:
+** https://github.com/vllm-project/vllm[vllm-project/vllm]
+
