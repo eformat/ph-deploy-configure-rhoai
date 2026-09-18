@@ -1,0 +1,14 @@
+---
+# Strategic-merge patch enabling the MaaS view in the RHOAI dashboard.
+# Apply with: oc patch odhdashboardconfig odh-dashboard-config \
+#   -n redhat-ods-applications --type merge \
+#   --patch-file manifests/05-maas/enable/dashboard-maas-patch.yaml
+spec:
+  dashboardConfig:
+    # Surfaces the MaaS view (AI asset endpoints, API keys).
+    modelAsService: true
+    # Adds the "Observe & monitor -> Dashboard (Tech Preview)" nav. The tab renders
+    # data from the RHOAI monitoring stack (DSCI monitoring.metrics, enabled by default
+    # in this workshop); the full per-subscription token telemetry pipeline is wired up
+    # in Module 5 (Exercise 5) and viewed in Module 5 (Exercise 8).
+    observabilityDashboard: true

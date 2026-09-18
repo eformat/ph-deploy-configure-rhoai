@@ -1,0 +1,93 @@
+---
+# MaaS governs models served as an LLMInferenceService (the gateway-native KServe
+# serving object), NOT the plain InferenceService from Module 4 — MaaSModelRef.spec.modelRef.kind
+# only accepts LLMInferenceService or ExternalModel. This deploys qwen25-05b a second time as an
+# LLMInferenceService wired to the MaaS gateway via spec.router.gateway.refs, so the subscription,
+# API key, and rate limit in the following exercise have a model to publish.
+#
+# The OpenAI model id is spec.model.name ("qwen25-05b"), kept stable so the Module 5 curl and
+# playground calls resolve. Weights come from the OCI modelcar (same image Modules 4 & 6 use), so
+# the model loads from the mirrored registry on a disconnected cluster — no Hugging Face reach-out.
+apiVersion: serving.kserve.io/v1alpha1
+kind: LLMInferenceService
+metadata:
+  name: qwen25-05b-maas
+  labels:
+    opendatahub.io/dashboard: "true"
+spec:
+  model:
+    uri: "oci://quay.io/redhat-ai-services/modelcar-catalog:qwen2.5-0.5b-instruct"
+    name: qwen25-05b
+  replicas: 1
+  router:
+    route: {}
+    # Attach to the MaaS-enabled gateway created in Exercise 2.
+    gateway:
+      refs:
+        - name: maas-default-gateway
+          namespace: openshift-ingress
+  template:
+    containers:
+      - name: main
+        # Red Hat supported CPU vLLM image (same build the pre-installed vllm-cpu-x86 runtime uses).
+        image: registry.redhat.io/rhaii/vllm-cpu-rhel9@sha256:0ec0f5ff9a5ff263f58db0cfb19e3d7eef24b94c2d8629fe5145f5a8747e28c9
+        # Bound vLLM's CPU memory footprint so 0.5B fits the limit below (Qwen2.5-0.5B
+        # otherwise profiles against the full 32K context and gets OOMKilled on CPU).
+        # max-model-len must exceed the Gen AI playground's fixed output request: the Llama Stack
+        # distribution sends max_tokens=4096 (VLLM_MAX_TOKENS) on every call, so a 4096 context
+        # leaves 0 tokens for the prompt and every playground turn fails with HTTP 400. 8192 gives
+        # a 4096-token input budget alongside the 4096-token output; the CPU KV cache
+        # (VLLM_CPU_KVCACHE_SPACE=2Gi) has ample room for this (~175K tokens of block capacity).
+        args:
+          - "--dtype=bfloat16"
+          - "--max-model-len=8192"
+          - "--max-num-seqs=8"
+          - "--enable-force-include-usage"  # always emit token-usage in responses (MaaS telemetry)
+          - "--enforce-eager"
+        env:
+          - name: VLLM_LOGGING_LEVEL
+            value: INFO
+          - name: VLLM_CPU_KVCACHE_SPACE
+            value: "2"               # GiB reserved for the CPU KV cache
+          # The container sees ALL host cores (e.g. 32) but the cgroup CFS quota is `limits.cpu`.
+          # Without these, vLLM/OpenMP spawns one thread per host core, thrashes over the cores it
+          # actually has, and gets CPU-throttled to ~0.1 tok/s (a short reply then takes minutes and
+          # trips the gateway route timeout -> 504). Pin the thread pool to a small, single-NUMA-node
+          # core set (0-3): an explicit bind co-locates compute and memory on one NUMA node, which is
+          # what makes decode fast here (~2s completions) — do NOT use "auto", which spans both
+          # sockets and forces slow cross-NUMA memory access. Keep OMP_NUM_THREADS == limits.cpu.
+          # Matches the Module 4 InferenceService. (The Module 4/5/6 vLLM pods all pin to cores 0-3,
+          # so run them one at a time on a small node or size the node for that shared-core contention.)
+          - name: OMP_NUM_THREADS
+            value: "4"
+          - name: VLLM_CPU_OMP_THREADS_BIND
+            value: "0-3"
+        resources:
+          # request stays low so this second copy of the model still schedules on a busy single-node
+          # cluster; the limit is 4 so the CFS quota matches OMP_NUM_THREADS above (throughput is
+          # governed by the limit, not the request). Memory is bounded by --max-model-len +
+          # VLLM_CPU_KVCACHE_SPACE above, so 8Gi suits 0.5B.
+          requests:
+            cpu: "1"
+            memory: 2Gi
+          limits:
+            cpu: "4"
+            memory: 8Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTPS
+          initialDelaySeconds: 90
+          periodSeconds: 30
+          timeoutSeconds: 30
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+            scheme: HTTPS
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          timeoutSeconds: 10
+          failureThreshold: 30

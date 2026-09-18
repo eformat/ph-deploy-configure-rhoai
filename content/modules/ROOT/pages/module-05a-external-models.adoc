@@ -33,8 +33,6 @@ model workflow.
 * Publish simulator models through the MaaS gateway and call them with an API key
 * Observe all five provider types in *Gen AI studio -> AI asset endpoints*
 
-toc::[]
-
 ifeval::["{rhoai_version}" == "3.5"]
 == Resource model (RHOAI 3.5+)
 
@@ -129,6 +127,30 @@ ifeval::["{rhoai_version}" == "3.5"]
 The llm-katan Helm chart deploys a simulator pod and creates `ExternalProvider` + `ExternalModel`
 CRs for each of the five supported provider types. The ExternalModel controller then creates the
 HTTPRoutes and Services that wire them to `maas-default-gateway`.
+
+Every `ExternalModel` references a credential `Secret`. The secret must carry the label
+`inference.llm-d.ai/ipp-managed: "true"` so the Inference Payload Processor (IPP) injects the
+API key into upstream requests. Because llm-katan is an echo simulator it does not validate API
+keys — a dummy value is sufficient:
+
+[source,yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sim-openai                           # <1>
+  namespace: llm-katan
+  labels:
+    inference.llm-d.ai/ipp-managed: "true"   # <2>
+type: Opaque
+stringData:
+  api-key: "sim-fake-key"                    # <3>
+----
+<1> Name must match the `credentialRef.name` in the `ExternalModel`.
+<2> Required label — IPP watches for secrets with this label and injects the `api-key`
+    value as the `Authorization: Bearer` header on upstream requests.
+<3> Any non-empty value works for llm-katan. For a real provider this would be the actual
+    API key (OpenAI, Anthropic, Azure, etc.).
 
 The chart renders two kinds of external model. Four providers use the **high-level** maas
 `ExternalModel` — here is `sim-openai` as an example:
@@ -292,6 +314,8 @@ curl -sSk "${HOST}/maas-api/v1/models" \
 +
 You should see `sim-openai`, `sim-anthropic`, `sim-azure-openai`, `sim-bedrock`, and
 `sim-vertex-openai` listed.
++
+image::22-maas-llm-katan-models.png[MaaS External Models,link=self,window=blank,width=800]
 
 == Exercise 2: Mint an API key and call each provider
 
@@ -498,9 +522,29 @@ oc apply -f manifests/05-maas/external-model-34/namespace.yaml
 oc apply -f manifests/05-maas/external-model-34/simulator.yaml -n llm-katan
 ----
 
-. Create the simulator credential secret. Never store credentials in git — create them
-  imperatively. The label `inference.networking.k8s.io/bbr-managed: "true"` is required so the
-  BBR ext-proc injects the key into upstream requests:
+. Create the simulator credential secret. The label
+  `inference.networking.k8s.io/bbr-managed: "true"` is required so the BBR ext-proc injects
+  the key into upstream requests. Because llm-katan is an echo simulator it does not validate
+  API keys — a dummy value is sufficient:
++
+[source,yaml]
+----
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sim-openai-key                                  # <1>
+  namespace: llm-katan
+  labels:
+    inference.networking.k8s.io/bbr-managed: "true"     # <2>
+type: Opaque
+stringData:
+  api-key: "sim-fake-key"                               # <3>
+----
+<1> Name must match the `credentialRef.name` in the `ExternalModel`.
+<2> Required label — the BBR ext-proc watches for secrets with this label and injects the
+    `api-key` value as the `Authorization: Bearer` header on upstream requests.
+<3> Any non-empty value works for llm-katan. For a real provider this would be the actual
+    API key (OpenAI, Anthropic, Azure, etc.).
 +
 [source,bash,role="execute"]
 ----

@@ -1,0 +1,58 @@
+---
+apiVersion: datasciencecluster.opendatahub.io/v1
+kind: DataScienceCluster
+metadata:
+  name: default-dsc
+  namespace: redhat-ods-operator
+spec:
+  components:
+    # Required by this workshop
+    dashboard:
+      managementState: Managed
+    kserve:
+      managementState: Managed
+      nim:
+        managementState: Managed
+      rawDeploymentServiceConfig: Headless
+    # MaaS in RHOAI 3.5+ is managed by the aigateway component, not kserve.modelsAsService.
+    # Left Removed here; Module 5's dsc-maas-patch-35 flips this to Managed once RHCL and
+    # the maas-default-gateway are in place (prevents AIGatewayReady=False at install).
+    aigateway:
+      managementState: Managed
+      modelsAsAService:
+        managementState: Removed
+    mlflowoperator:
+      managementState: Managed
+    aipipelines:
+      argoWorkflowsControllers:
+        managementState: Managed
+      managementState: Managed
+    modelregistry:
+      managementState: Managed
+      registriesNamespace: rhoai-model-registries
+    workbenches:
+      managementState: Managed
+    datasciencepipelines:
+      managementState: Managed
+    # Gen AI studio (Module 5, Exercise 9) — enabled later via dsc-genai-patch-35.yaml
+    ogx:
+      managementState: Removed
+    # Not needed for the workshop
+    # llamastackoperator must be Removed before OGX can be enabled — they are
+    # mutually exclusive (OGX supersedes LlamaStack).
+    llamastackoperator:
+      managementState: Removed
+    feastoperator:
+      managementState: Removed
+    codeflare:
+      managementState: Removed
+    kueue:
+      managementState: Removed
+    ray:
+      managementState: Removed
+    trainer:
+      managementState: Removed
+    trainingoperator:
+      managementState: Removed
+    trustyai:
+      managementState: Removed

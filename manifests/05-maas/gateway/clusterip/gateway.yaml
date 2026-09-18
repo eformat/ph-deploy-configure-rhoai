@@ -1,0 +1,44 @@
+---
+# ClusterIP mode — for clusters WITHOUT a LoadBalancer provider (bare-metal,
+# on-prem, disconnected, RHDP workshop clusters).
+#
+# Uses data-science-gateway-class (the same class as RHOAI's built-in data-science-gateway)
+# instead of openshift-default. This class properly exposes the external Route hostname
+# in status so the maas-api can discover the gateway URL.
+#
+# The Route in route.yaml exposes the gateway externally with Edge TLS termination.
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  # The MaaS controller hardcodes this name/namespace (GATEWAY env) — do not rename.
+  name: maas-default-gateway
+  namespace: openshift-ingress
+  annotations:
+    opendatahub.io/managed: "false"
+    security.opendatahub.io/authorino-tls-bootstrap: "true"
+  labels:
+    app.kubernetes.io/name: maas
+    app.kubernetes.io/instance: maas-default-gateway
+    app.kubernetes.io/component: gateway
+    kuadrant.io/gateway: "true"
+    opendatahub.io/managed: "false"
+spec:
+  gatewayClassName: data-science-gateway-class
+  infrastructure:
+    parametersRef:
+      group: ""
+      kind: ConfigMap
+      name: maas-default-gateway-config
+  listeners:
+    - name: https
+      port: 443
+      protocol: HTTPS
+      allowedRoutes:
+        namespaces:
+          from: All
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - group: ""
+            kind: Secret
+            name: maas-gw-service-tls

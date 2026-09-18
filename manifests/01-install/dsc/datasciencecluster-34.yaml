@@ -1,0 +1,50 @@
+---
+apiVersion: datasciencecluster.opendatahub.io/v1
+kind: DataScienceCluster
+metadata:
+  name: default-dsc
+  namespace: redhat-ods-operator
+spec:
+  components:
+    # Required by this workshop
+    dashboard:
+      managementState: Managed
+    kserve:
+      managementState: Managed
+      # MaaS (Models-as-a-Service) is enabled later in Module 5, after Red Hat
+      # Connectivity Link and the maas-default-gateway exist. Left Managed here it
+      # blocks the DSC (ModelsAsServiceReady=False, GatewayNotReady). Module 5's
+      # dsc-maas-patch flips this back to Managed once the prerequisites are in place.
+      modelsAsService:
+        managementState: Removed
+      nim:
+        managementState: Managed
+      rawDeploymentServiceConfig: Headless
+    mlflowoperator:
+      managementState: Managed
+    aipipelines:
+      argoWorkflowsControllers:
+        managementState: Managed
+      managementState: Managed
+    modelregistry:
+      managementState: Managed
+      registriesNamespace: rhoai-model-registries
+    workbenches:
+      managementState: Managed
+    datasciencepipelines:
+      managementState: Managed
+    # Not needed for the workshop
+    feastoperator:
+      managementState: Removed
+    codeflare:
+      managementState: Removed
+    kueue:
+      managementState: Removed
+    ray:
+      managementState: Removed
+    trainer:
+      managementState: Removed
+    trainingoperator:
+      managementState: Removed
+    trustyai:
+      managementState: Removed

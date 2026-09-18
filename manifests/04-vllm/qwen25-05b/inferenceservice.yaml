@@ -1,0 +1,83 @@
+---
+# Qwen2.5-0.5B-Instruct served on the CPU vLLM runtime, single-node, no scheduler.
+# The OpenAI API model id is taken from the InferenceService name (qwen25-05b).
+# storageUri points at an OCI modelcar; swap for an s3:// URI backed by the
+# aws-connection-models Secret if you stage weights in object storage instead.
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: qwen25-05b
+  annotations:
+    openshift.io/display-name: "Qwen2.5-0.5B-Instruct (CPU)"
+    # The dashboard names a deployment's serving runtime from these template annotations
+    # (set automatically when you deploy via the UI). Without them the Deployments list shows
+    # "Unknown Serving Runtime". They must match the ServingRuntime template in
+    # redhat-ods-applications (oc get template -n redhat-ods-applications | grep vllm-cpu-x86).
+    opendatahub.io/template-name: "vllm-cpu-x86-runtime-template"
+    opendatahub.io/template-display-name: "vLLM CPU (x86) ServingRuntime for KServe - Tech Preview"
+    serving.kserve.io/deploymentMode: RawDeployment
+    # Require token auth on the external route (the dashboard's "Require token authentication").
+    # ODH injects a kube-rbac-proxy sidecar in front of vLLM; every request must carry a
+    # ServiceAccount bearer token that is RBAC-authorized to `get` this InferenceService
+    # (see serviceaccount.yaml / role.yaml / rolebinding.yaml). Set to "false" (or remove) to
+    # expose the route unauthenticated. Module 5 (MaaS) layers governed, multi-tenant access
+    # (self-service API keys + rate limits) on top of this.
+    security.opendatahub.io/enable-auth: "true"
+  labels:
+    opendatahub.io/dashboard: "true"
+    # Publish this deployment as an AI asset endpoint so it is selectable in the Gen AI
+    # playground (Module 5, Exercise 9). This is the label the dashboard's "Add as AI asset
+    # endpoint" checkbox sets when you deploy via the UI; we set it here because the model is
+    # deployed from YAML. Without it (alongside opendatahub.io/dashboard) the model is greyed
+    # out in the AI-asset list. Harmless when the Gen AI studio is not enabled — it is just a label.
+    opendatahub.io/genai-asset: "true"
+    # KServe-managed external route (the dashboard's "Make deployed models available
+    # through an external route"). KServe creates and owns an edge-terminated Route, and
+    # .status.url becomes the external HTTPS endpoint. Remove this label to keep the model
+    # cluster-internal only (headless Service, no route).
+    networking.kserve.io/visibility: exposed
+spec:
+  predictor:
+    minReplicas: 1
+    maxReplicas: 1
+    model:
+      modelFormat:
+        name: vLLM
+      runtime: vllm-cpu-x86-runtime
+      storageUri: "oci://quay.io/redhat-ai-services/modelcar-catalog:qwen2.5-0.5b-instruct"
+      # Bound vLLM's CPU memory footprint so it fits the limit below. Without these,
+      # vLLM profiles against the model's full 32K context and a large batch and gets
+      # OOMKilled on a CPU node.
+      args:
+        - "--dtype=bfloat16"       # half the weight footprint vs float32
+        # cap context (default would be 32768). 8192 (not 4096) so the model is usable from the
+        # Gen AI playground, whose Llama Stack distribution sends a fixed max_tokens=4096 output
+        # request — a 4096 context would leave 0 tokens for the prompt (HTTP 400). The CPU KV
+        # cache has ample room for 8192 (see VLLM_CPU_KVCACHE_SPACE below).
+        - "--max-model-len=8192"
+        - "--max-num-seqs=8"       # cap concurrent sequences (default 256)
+        - "--enable-force-include-usage"  # always emit token-usage in responses (MaaS telemetry)
+        - "--enforce-eager"        # skip graph capture / extra buffers
+      env:
+        - name: VLLM_CPU_KVCACHE_SPACE
+          value: "2"               # GiB reserved for the CPU KV cache
+        # The container sees ALL host cores (e.g. 32) but the cgroup CFS quota is `limits.cpu`.
+        # Without these, vLLM/OpenMP spawns one thread per host core, thrashes over the 4 cores
+        # it actually has, and gets CPU-throttled to ~0.1 tok/s (a 16-token reply then takes
+        # minutes and trips the gateway's route timeout -> 504/500). Pin the thread pool to the
+        # allocation (matches the Module 4 InferenceService). Keep OMP_NUM_THREADS == limits.cpu.
+        - name: OMP_NUM_THREADS
+          value: "4"
+        - name: VLLM_CPU_OMP_THREADS_BIND
+          value: "0-3"
+      resources:
+          # request stays low so this second copy of the model still schedules on a busy
+          # single-node cluster; the limit is 4 so the CFS quota matches OMP_NUM_THREADS above
+          # (throughput is governed by the limit, not the request). With this, a short chat
+          # completion returns in ~2s instead of timing out.
+        requests:
+          cpu: "1"
+          memory: 2Gi
+        limits:
+          cpu: "4"
+          memory: 8Gi

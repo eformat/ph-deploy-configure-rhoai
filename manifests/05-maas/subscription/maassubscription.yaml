@@ -1,0 +1,38 @@
+---
+# Subscription with a token rate limit that drives HTTP 429 on excess.
+# Schema (maas.opendatahub.io/v1alpha1): modelRefs[] point at the MaaSModelRef by {name, namespace}
+# (both required) — namespace must match where the MaaSModelRef lives (the workshop project),
+# pinned literally below since these manifests are not templated.
+#
+# THIS OBJECT lives in `models-as-a-service`, NOT the workshop project: maas-api only reads
+# subscriptions from the namespace named by its MAAS_SUBSCRIPTION_NAMESPACE env (models-as-a-service).
+# A subscription applied into any other namespace is silently ignored and `/maas-api/v1/models`
+# returns an empty catalog.
+#
+# owner.groups grants the subscription to `system:authenticated:oauth` — the group the OpenShift
+# OAuth/OIDC identity actually presents to Authorino. Plain `system:authenticated` never matches the
+# generated AuthPolicy's `allowed_groups`, so the request is denied (403).
+apiVersion: maas.opendatahub.io/v1alpha1
+kind: MaaSSubscription
+metadata:
+  name: qwen25-05b-demo
+  namespace: models-as-a-service
+spec:
+  owner:
+    groups:
+      - name: system:authenticated:oauth
+  # tokenMetadata feeds auth.identity.subscription_info.{costCenter,organizationId}, which the
+  # TelemetryPolicy references as MaaS token-metric labels (manifests/05-maas/telemetry). RHCL 1.4.2
+  # evaluates those CEL label expressions strictly: if costCenter/organizationId are absent they
+  # resolve to null, the labeled descriptor fails to build, and Limitador never records the
+  # authorized_hits counter — so the RHOAI "Usage" dashboard token panels stay empty. Supplying
+  # placeholder values keeps the expressions valid. (Fixed upstream in a 3.4 z-stream; harmless to keep.)
+  tokenMetadata:
+    costCenter: na
+    organizationId: na
+  modelRefs:
+    - name: qwen25-05b-maas
+      namespace: rhoai-deploy
+      tokenRateLimits:
+        - limit: 100
+          window: 1m
