@@ -52,10 +52,6 @@ spec:
       title: "MaaS Governance"
       duration_min: 60
       status: not_started
-    - id: module-05a
-      title: "External Models"
-      duration_min: 30
-      status: not_started
     - id: module-06
       title: "Scaling llm-d"
       duration_min: 45
@@ -70,8 +66,8 @@ spec:
     ocp_version: "4.20"                  # e.g. 4.20 — minimum 4.20; leave empty for rhel-vms
     cluster_type: "multinode"          # sno | multinode — only for platform = ocp
     control_plane_instance_count: 1    # 1 if sno, 3 if multinode
-    control_plane_cpu: 16              # 32 if sno, 16 if multinode
-    control_plane_ram_gb: 64           # 128 if sno, 64 if multinode
+    control_plane_cpu: 32              # 32 if sno, 16 if multinode
+    control_plane_ram_gb: 128          # 128 if sno, 64 if multinode
     worker_count: 1                    # number of OCP worker nodes
     worker_cpu: 32                     # vCPU per worker
     worker_ram_gb: 128                 # RAM per worker in GB
@@ -137,8 +133,6 @@ approval_checklist:
         overview: "Deploy Qwen2.5-0.5B-Instruct as a KServe InferenceService and make authenticated OpenAI-compatible inference requests."
       - title: "Module 5: MaaS Governance"
         overview: "Stand up the full MaaS governance stack with PostgreSQL, Kuadrant, Authorino, Limitador, and COO observability; govern models via API keys and rate limiting."
-      - title: "Module 5a: External Models"
-        overview: "Configure ExternalModel resources to proxy external AI provider APIs through the MaaS gateway using the llm-katan simulator."
       - title: "Module 6: Scaling llm-d"
         overview: "Install KEDA, deploy llm-d with InferencePool, and configure a ScaledObject driven by vLLM queue metrics from Thanos Querier to auto-scale under load."
     rcars_overlap_pct: 100

@@ -65,11 +65,11 @@ Lab (hands-on)
 | Module | Title | Duration |
 |--------|-------|----------|
 | 1 | Install (Connected) | 25 min |
-| 2 | Install (Disconnected) *(alt path)* | 40 min |
+| 2 | Install (Disconnected) | 40 min |
 | 3 | Model-Serving Platform | 20 min |
 | 4 | Serving with vLLM | 30 min |
 | 5 | MaaS Governance | 60 min |
-| 5a | External Models *(optional)* | 30 min |
+| — | *Supplementary — External Models* | 30 min |
 | 6 | Scaling llm-d | 45 min |
 | — | **Total hands-on (connected path, excl. 5a)** | **~210 min** |
 | — | Getting Connected (setup) | 10 min |
@@ -94,7 +94,7 @@ Advanced
 - **Cluster type:** Multinode
 - **OCP version:** 4.20
 - **Topology:** Per-student
-- **Sizing:** 1 control plane (16 vCPU, 64GB RAM); 1 worker (32 vCPU, 128GB RAM, 300GB disk)
+- **Sizing:** 1 control plane (32 vCPU, 128GB RAM); 1 worker (32 vCPU, 128GB RAM, 300GB disk)
 - **Automation approach:** Ansible
 - **AI/MaaS:** MaaS + open-source model (`qwen2.5-0.5b-instruct`); no GPU required
 - **External services:** `quay.io`, `registry.redhat.io`, `mirror.openshift.com`, `github.com`
