@@ -66,6 +66,8 @@ oc rollout status deploy/postgres -n redhat-ods-applications
 
 With the database running, let's install the API gateway layer that MaaS uses to enforce subscriptions.
 
+image::09-maas-postgres-deployment.png[MaaS PostgreSQL Deployment,link=self,window=blank,width=800]
+
 == Exercise 2: Install Red Hat Connectivity Link and bootstrap the gateway
 
 The order matters here. The Kuadrant custom resource and the gateway both depend on

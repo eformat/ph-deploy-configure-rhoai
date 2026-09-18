@@ -106,6 +106,8 @@ oc get inferenceservice qwen25-05b -n {project_name}
 
 The model is deployed and listening. Now let's make your first authenticated inference request.
 
+image::06-serving-cpu-model.png[Serving CPU Model,link=self,window=blank,width=800]
+
 == Exercise 2: Query the OpenAI-compatible API
 
 . Because the model is exposed (Exercise 1), `.status.url` is the *external* HTTPS route, reachable
@@ -129,6 +131,8 @@ For the *internal* (in-cluster) endpoint instead, use `.status.address.url` — 
 `http://qwen25-05b-predictor.{project_name}.svc.cluster.local:8080` and only works from a pod or
 in-cluster terminal, not the bastion.
 ====
++
+image::07-query-cpu-model.png[Query CPU Model,link=self,window=blank,width=800]
 
 [NOTE]
 ====
@@ -187,21 +191,23 @@ NOTE: These two settings are orthogonal. You can expose a model externally witho
 oc get route -n {project_name} -l inferenceservice-name=qwen25-05b
 oc get inferenceservice qwen25-05b -n {project_name} -o jsonpath='{.status.url}{"\n"}'
 ----
++
+[NOTE]
+====
+The cluster's `data-science-gateway` fronts the {rhoai-short} dashboard UI and OAuth login — it is
+*not* an inference gateway. MaaS provisions its own `maas-default-gateway` for governed model
+traffic.
+====
 
+. Check the pod containers
++
 [source,bash,role="execute",subs="attributes"]
 ----
 # The auth proxy runs alongside the vLLM container
 oc get pod -n {project_name} -l serving.kserve.io/inferenceservice=qwen25-05b \
   -o jsonpath='{.items[0].spec.containers[*].name}{"\n"}'   # -> kserve-container kube-rbac-proxy ...
 ----
-
-[source,bash,role="execute",subs="attributes"]
-----
-# The identity + RBAC that make a token acceptable
-oc get sa qwen25-05b-caller -n {project_name}
-oc get rolebinding qwen25-05b-caller-inference-get -n {project_name}
-----
-
++
 [NOTE]
 ====
 The proxy authorizes each request with a SubjectAccessReview for
@@ -211,6 +217,15 @@ auth instead, set `security.opendatahub.io/enable-auth` to `"false"` (or remove 
 internal-only, drop the `visibility` label.
 ====
 
+. Check the ServiceAccount and RoleBinding
++
+[source,bash,role="execute",subs="attributes"]
+----
+# The identity + RBAC that make a token acceptable
+oc get sa qwen25-05b-caller -n {project_name}
+oc get rolebinding qwen25-05b-caller-inference-get -n {project_name}
+----
++
 [WARNING]
 ====
 Token auth protects the endpoint, but it is still *per-model, self-managed* security: you hand out
@@ -220,12 +235,6 @@ many models behind one gateway. That is exactly what xref:05-maas-governance.ado
 with {maas}, and it is where external access should ultimately be centralised.
 ====
 
-[NOTE]
-====
-The cluster's `data-science-gateway` fronts the {rhoai-short} dashboard UI and OAuth login — it is
-*not* an inference gateway. MaaS provisions its own `maas-default-gateway` for governed model
-traffic.
-====
 
 === Verify
 
@@ -246,6 +255,8 @@ oc get servingruntime -n {project_name} -o yaml | less
 
 Notice the vLLM `args` (for example `--max-model-len`, `--dtype`) and how the CPU profile omits GPU
 resource requests.
+
+image::08-vllm-cpu-runtime-args.png[vLLM CPU Runtime Args,link=self,window=blank,width=800]
 
 == Module summary
 
