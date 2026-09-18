@@ -119,6 +119,8 @@ oc wait --for=jsonpath='{.status.phase}'=Succeeded \
   csv/$(oc get subscription openshift-cert-manager-operator -n cert-manager-operator -o jsonpath='{.status.currentCSV}') \
   -n cert-manager-operator --timeout=5m
 ----
++
+image::10-rhcl-operator.png[RHCL Operator,link=self,window=blank,width=800]
 
 . Register Kuadrant now that its CRD exists. The `Kuadrant` CR bootstraps Authorino
   (authentication) and Limitador (rate limiting) in the `kuadrant-system` namespace:
@@ -245,6 +247,8 @@ oc patch console.operator.openshift.io cluster --type=json \
 The console reloads after a few seconds; the *Connectivity Link* and *Connectivity Link API
 Catalog* menus then appear in the left nav.
 ====
+
+image::11-rhcl-dashboard.png[RHCL Dashboard,link=self,window=blank,width=800]
 
 == Exercise 3a: Enable User Workload Monitoring
 
@@ -513,6 +517,8 @@ endif::[]
 
 With the MaaS backend active and the dashboard refreshed, let's deploy a model under governed access.
 
+image::12-maas-observability-dashboard.png[MaaS Observability Dashboard,link=self,window=blank,width=800]
+
 == Exercise 4: Deploy the model as an LLMInferenceService
 
 NOTE: An `LLMInferenceService` is MaaS's gateway-native serving object — a superset of the `InferenceService` you used in Module 4. The key difference: it registers directly with `maas-default-gateway`, so every request flows through rate-limit enforcement before reaching vLLM. The `MaaSModelRef` CR only accepts an `LLMInferenceService` or an `ExternalModel`; the plain `InferenceService` from Module 4 remains serving under its own token-auth route and is unchanged.
@@ -563,6 +569,8 @@ gate checks for.
 endif::[]
 
 The model is serving through the gateway. Now let's wire up the governance layer: subscription, auth policy, and telemetry.
+
+image::13-serving-cpu-model-maas.png[Serving CPU Model as a Service,link=self,window=blank,width=800]
 
 == Exercise 5: Publish and govern the model
 
@@ -646,6 +654,8 @@ anywhere else is silently ignored and `/maas-api/v1/models` returns an empty cat
 access to the `system:authenticated:oauth` group — the group the OpenShift OAuth/OIDC identity
 actually presents; plain `system:authenticated` never matches and every call is denied (403).
 ====
++
+image::14-maas-subscription-maas-model.png[MaaS Subscription and MaaS Model,link=self,window=blank,width=800]
 
 . Wire up per-subscription telemetry so gateway token usage is broken out by subscription. Both
   CRs target `maas-default-gateway` and build on the `MaaSAuthPolicy` you just created, so they are
@@ -743,6 +753,8 @@ oc get telemetry,telemetrypolicy -n openshift-ingress
 
 Governance is in place. Let's mint an API key and make your first governed inference request.
 
+image::15-maas-ai-asset-endpoints.png[MaaS AI Asset Endpoints,link=self,window=blank,width=800]
+
 == Exercise 6: Mint an API key and call the model
 
 MaaS issues API keys through the `maas-api` endpoint, not as a Kubernetes Secret. Authenticate with
@@ -805,6 +817,17 @@ curl -sSk "${HOST}/v1/chat/completions" \
   -d "{\"model\":\"${MODEL_ID}\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}],\"max_tokens\":50}" | jq .
 ----
 
+image::16-maas-model-success.png[MaaS Body-Based Routing Model Success,link=self,window=blank,width=800]
+
+[NOTE]
+====
+*Body-based routing requires the full catalog `id`* (e.g.
+`publishers/rhoai-deploy/models/qwen25-05b`), not the short model name (`qwen25-05b`). The
+gateway resolves the model from the body and matches it against the catalog — the short name
+returns a 404. Path-based routing uses the short name in the *body* and the namespace path
+in the *URL*.
+====
+
 *Path-based routing.* Encode the model in the URL path. Useful for debugging (each model
 has a distinct URL) but couples the client to the cluster's namespace layout:
 
@@ -816,15 +839,6 @@ curl -sSk "${HOST}${MODEL_PATH}/v1/chat/completions" \
   -d "{\"model\":\"${MODEL_NAME}\",\"messages\":[{\"role\":\"user\",\"content\":\"Hello\"}],\"max_tokens\":50}" | jq .
 ----
 --
-
-[NOTE]
-====
-*Body-based routing requires the full catalog `id`* (e.g.
-`publishers/rhoai-deploy/models/qwen25-05b`), not the short model name (`qwen25-05b`). The
-gateway resolves the model from the body and matches it against the catalog — the short name
-returns a 404. Path-based routing uses the short name in the *body* and the namespace path
-in the *URL*.
-====
 
 [NOTE]
 ====
@@ -863,6 +877,8 @@ done | sort | uniq -c
 
 The rate limiter is working. Now let's see those 429s — and the token consumption behind them — in the metrics stack.
 
+image::17-maas-rate-limiting.png[MaaS Rate Limiting,link=self,window=blank,width=800]
+
 == Exercise 8: View engine metrics and MaaS telemetry
 
 NOTE: Two separate metric paths converge on the dashboard here. *Engine metrics* (`kserve_vllm:*` series) flow from vLLM → `ServiceMonitor` → User Workload Monitoring (Exercise 3a) → Thanos Querier → the OCP console *Observe -> Metrics* page. *MaaS telemetry* (`authorized_hits`, `limited_calls`) flows from the Limitador rate limiter → Istio `Telemetry` + Kuadrant `TelemetryPolicy` (Exercise 5) → the {rhoai-short} dashboard *Observe & monitor* view. They measure different things: engine metrics show what vLLM processed; MaaS telemetry shows what the gateway counted against the subscription limit.
@@ -888,6 +904,8 @@ sum(increase(kserve_vllm:generation_tokens_total[15m]))
 ----
 kserve_vllm:kv_cache_usage_perc
 ----
++
+image::18-maas-vllm-metrics.png[vLLM Metrics,link=self,window=blank,width=800]
 +
 NOTE: These are PromQL expressions — paste them into the *Observe -> Metrics* query box in the
 console ({metrics_console_url}), not the terminal. `prompt_tokens` are the input tokens the engine
@@ -923,6 +941,8 @@ counter the limit is enforced on, so it is the engine's token counts seen from t
 window the `limit: 100 / window: 1m` rule measures — watch it approach 100 as you send traffic.
 `limited_calls` is the number of requests rejected with HTTP 429 once that window was exhausted,
 which is what you triggered in Exercise 7.
++
+image::19-maas-limits-metrics.png[MaaS Limits Metrics,link=self,window=blank,width=800]
 
 . View the same telemetry in the dashboard. In the {rhoai-short} dashboard, open *Observe &
   monitor -> Dashboard*; the token-usage panels break the `authorized_hits` counter out by
@@ -933,6 +953,8 @@ which is what you triggered in Exercise 7.
 ----
 oc get telemetry,telemetrypolicy -n openshift-ingress
 ----
++
+image::20-maas-observe-dashboard-metrics.png[MaaS Observe Dashboard Metrics,link=self,window=blank,width=800]
 
 === Verify
 
@@ -1001,6 +1023,8 @@ ifeval::["{rhoai_version}" == "3.5"]
 OGX
 endif::[]
 distribution, then select the `qwen25-05b` model and send a prompt.
++
+image::21-maas-genai-playground.png[MaaS Gen AI Playground,link=self,window=blank,width=800]
 
 ifeval::["{rhoai_version}" == "3.4"]
 NOTE: You can update the token rate limit (100 tokens / 1 minute) in the *Settings -> Subscriptions* menu.
