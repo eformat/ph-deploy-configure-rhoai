@@ -141,8 +141,39 @@ approval_checklist:
         overview: "Configure ExternalModel resources to proxy external AI provider APIs through the MaaS gateway using the llm-katan simulator."
       - title: "Module 6: Scaling llm-d"
         overview: "Install KEDA, deploy llm-d with InferencePool, and configure a ScaledObject driven by vLLM queue metrics from Thanos Querier to auto-scale under load."
-    rcars_overlap_pct: null
-    rcars_top_matches: []
+    rcars_overlap_pct: 100
+    rcars_top_matches:
+      - title: "Private Model as a Service - A Practical Guide to Red Hat AI"
+        ci_name: "published.private-maas-v3.prod"
+        url: "https://catalog.demo.redhat.com/catalog?item=published.private-maas-v3.prod"
+        relevance_score: 100
+        why_it_fits: "Directly covers Models-as-a-Service architecture on Red Hat OpenShift AI, including foundation model deployment, LLM inference endpoints, API governance, and observability — closely matching the focus on deploying, configuring, governing, and scaling AI model serving."
+        workloads:
+          - role: "ocp4_workload_authentication_keycloak"
+            collection: "agnosticd.core_workloads"
+          - role: "ocp4_workload_cert_manager"
+            collection: "agnosticd.core_workloads"
+          - role: "ocp4_workload_gitops_bootstrap"
+            collection: "agnosticd.core_workloads"
+          - role: "ocp4_workload_machinesets"
+            collection: "agnosticd.core_workloads"
+          - role: "ocp4_workload_openshift_gitops"
+            collection: "agnosticd.core_workloads"
+          - role: "ocp4_workload_showroom"
+            collection: "agnosticd.core_workloads"
+      - title: "Introducing llm-d: Your Production-Ready Path to Scalable LLM Inference"
+        ci_name: "published.llm-d-intro.prod"
+        url: "https://catalog.demo.redhat.com/catalog?item=published.llm-d-intro.prod"
+        relevance_score: 96
+        why_it_fits: "Directly covers llm-d, vLLM, and scalable LLM inference on OpenShift, aligning closely with the focus on deploying, configuring, and scaling AI model serving — but targets GPU-accelerated workloads on AWS and does not cover MaaS governance or the connected/disconnected install path."
+        workloads: []
+      - title: "LB2861 Introducing llm-d: Your Production-Ready Path to Scalable LLM Inference (AWS)"
+        ci_name: "summit-2026.lb2861-introducing-llm-d-aws.prod"
+        url: "https://catalog.demo.redhat.com/catalog?item=summit-2026.lb2861-introducing-llm-d-aws.prod"
+        relevance_score: 93
+        why_it_fits: "Covers llm-d, KServe, vLLM, and OpenShift AI in a hands-on deployment and benchmarking context — but requires AWS-provisioned GPU infrastructure, which conflicts with the CPU-only constraint of this lab."
+        workloads: []
+    catalog_gap: "This lab uniquely covers the full RHOAI platform engineering lifecycle — from Operator installation in both connected and air-gapped environments, through CPU-only vLLM model serving with KServe, to MaaS governance with Kuadrant/Authorino/Limitador, and KEDA-based autoscaling with llm-d — all completable without GPU hardware. Existing catalog items cover either MaaS consumption by developers (not platform setup), GPU-accelerated llm-d benchmarking, or vLLM in isolation; none walk a platform engineer through the complete install-to-govern-to-scale workflow on CPU-only infrastructure."
     rejections: []
 
   infra:
