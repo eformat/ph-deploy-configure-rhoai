@@ -20,17 +20,54 @@ project:
   workflow_id: "742e608c-f4a7-4e64-8b83-28692a935018"
 
 spec:
-  title: ""
-  learning_objectives: []
-  modules: []              # [{id, title, duration_min}] — written by intake Phase 4; id is stable (e.g. module-01)
+  title: "RHOAI Deploy & Configure Workshop"
+  learning_objectives:
+    - "Install the RHOAI Operator from OLM in connected and air-gapped cluster environments"
+    - "Configure a DataScienceCluster resource with KServe single-model serving and MaaS components enabled"
+    - "Deploy a CPU-optimized LLM as a KServe InferenceService using the vLLM CPU runtime"
+    - "Verify inference API responses through authenticated requests to the OpenAI-compatible endpoint"
+    - "Deploy the MaaS governance stack including PostgreSQL, Red Hat Connectivity Link, Authorino, and Limitador"
+    - "Govern LLM access by provisioning API keys, enforcing rate limits, and observing MaaS telemetry"
+    - "Configure ExternalModel resources to proxy external AI provider endpoints through the MaaS gateway"
+    - "Deploy llm-d with KEDA autoscaling driven by vLLM queue metrics from Thanos Querier"
+    - "Analyze replica scaling behavior by driving inference load and monitoring scale-up events"
+  modules:              # [{id, title, duration_min}] — written by intake Phase 4; id is stable (e.g. module-01)
+    - id: module-01
+      title: "Install (Connected)"
+      duration_min: 25
+      status: not_started
+    - id: module-02
+      title: "Install (Disconnected)"
+      duration_min: 40
+      status: not_started
+    - id: module-03
+      title: "Model-Serving Platform"
+      duration_min: 20
+      status: not_started
+    - id: module-04
+      title: "Serving with vLLM"
+      duration_min: 30
+      status: not_started
+    - id: module-05
+      title: "MaaS Governance"
+      duration_min: 60
+      status: not_started
+    - id: module-05a
+      title: "External Models"
+      duration_min: 30
+      status: not_started
+    - id: module-06
+      title: "Scaling llm-d"
+      duration_min: 45
+      status: not_started
   environment:
-    platform: ""               # ocp | rhel-vms — determines which sizing fields apply
+    platform: "ocp"              # ocp | rhel-vms — determines which sizing fields apply
     topology: ""               # shared-cluster | per-student | cnv-pool
     cloud_provider: cnv        # cnv | aws — cnv is default
     max_concurrent_users: null # required if topology = shared-cluster
 
     # --- OCP-specific fields (only when platform = ocp) ---
-    ocp_version: ""                    # e.g. 4.20 — minimum 4.20; leave empty for rhel-vms
+    ocp_version: "4.20"                  # e.g. 4.20 — minimum 4.20; leave empty for rhel-vms
     cluster_type: ""                   # sno | multinode — only for platform = ocp
     control_plane_instance_count: null # 1 if sno, 3 if multinode
     control_plane_cpu: null            # 32 if sno, 16 if multinode
@@ -46,17 +83,23 @@ spec:
 
     # --- Common fields (both platforms) ---
     aap_version: ""                    # required if AAP in products
-    ai_requirement: ""                 # maas | gpu | none
-    ai_model_tier: ""                  # open-source | frontier (if ai_requirement = maas or gpu)
-    ai_model_name: ""                  # specific model e.g. granite-3.1-8b
+    ai_requirement: "maas"            # maas | gpu | none
+    ai_model_tier: "open-source"      # open-source | frontier (if ai_requirement = maas or gpu)
+    ai_model_name: "qwen2.5-0.5b-instruct"  # specific model e.g. granite-3.1-8b
     ai_justification: ""               # required if ai_model_tier = frontier or ai_requirement = gpu
-    non_ga_products: []                # list of non-GA products/versions
-    non_ga_access_plan: ""             # how access is provided for non-GA products
-    external_services: []              # named external service dependencies e.g. [github.com]
+    non_ga_products:                   # list of non-GA products/versions
+      - "Red Hat OpenShift AI MaaS (Tech Preview)"
+      - "llm-d (Tech Preview)"
+    non_ga_access_plan: "Tech Preview features available via standard RHOAI operator installation from OLM; no special access required"
+    external_services:                 # named external service dependencies e.g. [github.com]
+      - "quay.io"
+      - "registry.redhat.io"
+      - "mirror.openshift.com"
+      - "github.com"
     gpu_nodes: 0                       # number of GPU nodes (0 = none)
     gpu_type: ""                       # e.g. NVIDIA A100 40GB (required if gpu_nodes > 0)
-  duration_hours: null
-  audience: ""               # beginner | intermediate | advanced
+  duration_hours: 4
+  audience: "advanced"               # beginner | intermediate | advanced
 
 development:
   automation:
@@ -82,8 +125,22 @@ approval_checklist:
     prerequisites_verifiable: null
     assessment_strategy: ""
     catalog_gap: ""
-    design_overview: ""
-    module_summaries: []
+    design_overview: "An end-to-end, CPU-only RHOAI deployment and operations lab for advanced OCP platform administrators and MLOps engineers, covering operator installation in connected and disconnected environments, KServe single-model serving with the vLLM CPU runtime, MaaS governance with Kuadrant/Authorino/Limitador and COO observability, and KEDA-based autoscaling for llm-d workloads. The lab supports RHOAI 3.4 and 3.5 from a single Kustomize codebase using conditional content gating."
+    module_summaries:
+      - title: "Module 1: Install (Connected)"
+        overview: "Install the RHOAI Operator from OLM and create a DataScienceCluster with KServe on a connected OCP cluster."
+      - title: "Module 2: Install (Disconnected)"
+        overview: "Mirror RHOAI images with oc-mirror v2 and complete an offline RHOAI installation in an air-gapped cluster."
+      - title: "Module 3: Model-Serving Platform"
+        overview: "Create the workshop project, enable KServe single-model serving cluster-wide, and instantiate the vLLM CPU ServingRuntime."
+      - title: "Module 4: Serving with vLLM"
+        overview: "Deploy Qwen2.5-0.5B-Instruct as a KServe InferenceService and make authenticated OpenAI-compatible inference requests."
+      - title: "Module 5: MaaS Governance"
+        overview: "Stand up the full MaaS governance stack with PostgreSQL, Kuadrant, Authorino, Limitador, and COO observability; govern models via API keys and rate limiting."
+      - title: "Module 5a: External Models"
+        overview: "Configure ExternalModel resources to proxy external AI provider APIs through the MaaS gateway using the llm-katan simulator."
+      - title: "Module 6: Scaling llm-d"
+        overview: "Install KEDA, deploy llm-d with InferencePool, and configure a ScaledObject driven by vLLM queue metrics from Thanos Querier to auto-scale under load."
     rcars_overlap_pct: null
     rcars_top_matches: []
     rejections: []
