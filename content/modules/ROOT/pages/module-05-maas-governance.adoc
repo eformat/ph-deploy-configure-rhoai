@@ -193,6 +193,10 @@ oc patch svc "${SVC}" -n openshift-ingress --subresource=status --type=merge \
   -p "{\"status\":{\"loadBalancer\":{\"ingress\":[{\"hostname\":\"maas.${CLUSTER_DOMAIN}\"}]}}}"
 oc wait --for=condition=Programmed gateway/maas-default-gateway \
   -n openshift-ingress --timeout=5m
+# The maas-ui pod caches the gateway URL at startup. Restart it so it
+# re-discovers the gateway through the new Route.
+oc rollout restart deploy/maas-ui -n redhat-ods-applications
+oc rollout status deploy/maas-ui -n redhat-ods-applications --timeout=60s
 ----
 
 *LoadBalancer (cloud — AWS/ROSA/OSD, or on-prem with MetalLB).* Only use this if your cluster has a
@@ -757,7 +761,16 @@ image::15-maas-ai-asset-endpoints.png[MaaS AI Asset Endpoints,link=self,window=b
 
 == Exercise 6: Mint an API key and call the model
 
-MaaS issues API keys through the `maas-api` endpoint, not as a Kubernetes Secret. Authenticate with
+MaaS API Keys can be created from the {rhoai-short} dashboard or from the CLI. We are going to use the CLI for this exercise,
+however, you can create an API key from the dashboard by clicking on the "API Keys" tab and select a subscription from the dropdown:
+
+image::26-maas-api-key-create.png[MaaS API Key Create,link=self,window=blank,width=800]
+
+and then clicking the "Create API Key" button.
+
+image::27-maas-api-key.png[MaaS API Key,link=self,window=blank,width=800]
+
+When using the CLI, MaaS issues API keys through the `maas-api` endpoint, not as a Kubernetes Secret. Authenticate with
 your OpenShift token to mint a key bound to the subscription, then call the model through the
 gateway.
 
