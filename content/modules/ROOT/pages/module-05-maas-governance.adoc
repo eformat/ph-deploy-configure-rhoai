@@ -890,7 +890,7 @@ done | sort | uniq -c
 
 The rate limiter is working. Now let's see those 429s — and the token consumption behind them — in the metrics stack.
 
-image::17-maas-rate-limiting.png[MaaS Rate Limiting,link=self,window=blank,width=800]
+image::17-maas-rate-limit.png[MaaS Rate Limiting,link=self,window=blank,width=800]
 
 == Exercise 8: View engine metrics and MaaS telemetry
 
