@@ -155,6 +155,8 @@ oc apply -k manifests/06-llmd/service -n {project_name}
 oc get pods -n {project_name} -w
 ----
 
+image::28-llmd-inference-model.png[LLM Inference Model Deployment,link=self,window=blank,width=800]
+
 === Verify
 
 * The llm-d Endpoint Picker (EPP) pod and vLLM pod(s) are `Running`:
@@ -163,6 +165,8 @@ oc get pods -n {project_name} -w
 ----
 oc get pods -n {project_name} -l app.kubernetes.io/name=qwen25-05b-llmd
 ----
++
+image::29-llmd-epp-pod.png[LLM Inference EPP Pod,link=self,window=blank,width=800]
 
 * The `LLMInferenceService` reaches `Ready=True` — its HTTPRoute is accepted by
   `maas-default-gateway` (a `WaitingForGateway` status here means the router is not attached to a
@@ -255,6 +259,8 @@ spec:
 ----
 oc apply -k manifests/06-llmd/maas-subscription
 ----
++
+image::30-llmd-maas-subscription.png[LLM Inference MaaS Subscription,link=self,window=blank,width=800]
 
 [NOTE]
 ====
@@ -352,6 +358,8 @@ oc get scaledobject -n {project_name}
 oc get hpa -n {project_name}
 ----
 +
+image::31-llmd-scaled-object.png[LLM Inference KEDA ScaledObject,link=self,window=blank,width=800]
++
 [NOTE]
 ====
 *Give the HPA a minute to populate.* The `ScaledObject` becomes `READY=True` almost immediately, but
@@ -438,6 +446,8 @@ or watch the Deployment's replica count directly:
 ----
 oc get deploy qwen25-05b-llmd-kserve -n {project_name} -w
 ----
++
+image::32-llmd-scale-hpa.png[KEDA Scale HPA,link=self,window=blank,width=800]
 
 . Correlate the scale event with the metrics that drove it. In the {ocp} console under
   *Observe -> Metrics* ({metrics_console_url}), overlay the queue depth and KV-cache utilization
@@ -466,6 +476,8 @@ xref:05-maas-governance.adoc[Module 5, Exercise 3]); the replica count rises aft
 ----
 increase(authorized_hits{subscription="qwen25-05b-llmd-demo"}[5m])
 ----
++
+image::33-llmd-num-wait-requests.png[KEDA Number of Waiting Requests,link=self,window=blank,width=800]
 
 === Verify
 
@@ -476,12 +488,12 @@ increase(authorized_hits{subscription="qwen25-05b-llmd-demo"}[5m])
 * `authorized_hits{subscription="qwen25-05b-llmd-demo"}` is non-zero — the scaling traffic was
   governed and metered by MaaS, and the llm-d model now appears in the Module 5 telemetry panels.
 
+== Exercise 6 (Reference): Workload Variant Autoscaler on GPU
+
 [NOTE]
 ====
 *This exercise is reference-only — it cannot be run on this CPU-only cluster.* The `VariantAutoscaling` CRD is not registered here (`spec.components.wva` is absent from this cluster's `DataScienceCluster`). Read it as guidance for GPU-enabled environments; Exercises 1–5 above are the hands-on path.
 ====
-
-== Exercise 6 (Reference): Workload Variant Autoscaler on GPU
 
 On a GPU-enabled {rhoai} {rhoai_version} cluster, the *Workload Variant Autoscaler (WVA)* is the
 recommended way to scale llm-d. It reads KV-cache utilization and queue depth and creates a KEDA
